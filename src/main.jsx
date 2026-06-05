@@ -2,7 +2,7 @@ import React, {StrictMode, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
-const apiUrl = `${import.meta.env.VITE_WORKER_URL || 'http://localhost:8787'}/generate`;
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'http://localhost:8787';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -34,13 +34,112 @@ function ImagePlaceholder() {
   );
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+function loadSession() {
+  const token = localStorage.getItem('mobi_token');
+  const exp = Number(localStorage.getItem('mobi_token_exp') || 0);
+  if (token && exp && Date.now() < exp) return token;
+  localStorage.removeItem('mobi_token');
+  localStorage.removeItem('mobi_token_exp');
+  return null;
+}
+
+function saveSession(token, exp) {
+  localStorage.setItem('mobi_token', token);
+  localStorage.setItem('mobi_token_exp', String(exp));
+}
+
+function clearSession() {
+  localStorage.removeItem('mobi_token');
+  localStorage.removeItem('mobi_token_exp');
+}
+
+function AuthForm({onSuccess}) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (loading) return;
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(`${WORKER_URL}/login`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Invalid password.');
+      onSuccess(data.token, data.exp);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="auth-shell">
+      <div className="auth-card">
+        <div className="brand auth-brand">
+          <img className="brand-logo" src="/logo.png" alt="Mobi Times logo" />
+          <span>Mobi Times</span>
+        </div>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-field">
+            <label htmlFor="auth-password">Password</label>
+            <input
+              id="auth-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <button type="submit" disabled={loading}>
+            {loading ? <span className="spinner" /> : null}
+            <span>{loading ? 'Signing in…' : 'Sign in'}</span>
+          </button>
+        </form>
+
+        {error && (
+          <p className="error-banner" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </main>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
+  const [token, setToken] = useState(() => loadSession());
   const [prompt, setPrompt] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  function handleLogin(newToken, exp) {
+    saveSession(newToken, exp);
+    setToken(newToken);
+  }
+
+  function handleLogout() {
+    clearSession();
+    setToken(null);
+  }
+
+  if (!token) {
+    return <AuthForm onSuccess={handleLogin} />;
+  }
 
   const canGenerate = prompt.trim().length > 0 && !isLoading;
 
@@ -53,11 +152,19 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${WORKER_URL}/generate`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({prompt: cleanPrompt}),
       });
+
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || 'Image generation failed.');
@@ -66,9 +173,7 @@ function App() {
       setImageUrl(`data:${payload.mimeType || 'image/png'};base64,${payload.imageBase64}`);
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Could not generate the image.',
+        requestError instanceof Error ? requestError.message : 'Could not generate the image.',
       );
     } finally {
       setIsLoading(false);
@@ -82,7 +187,12 @@ function App() {
           <img className="brand-logo" src="/logo.png" alt="Mobi Times logo" />
           <span>Mobi Times</span>
         </div>
-        <span className="studio-badge">Web Studio</span>
+        <div className="header-right">
+          <button type="button" className="logout-btn" onClick={handleLogout}>
+            Sign out
+          </button>
+          <span className="studio-badge">Web Studio</span>
+        </div>
       </header>
 
       <section className="workspace">
