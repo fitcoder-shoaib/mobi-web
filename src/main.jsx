@@ -85,7 +85,7 @@ function AuthForm({onSuccess}) {
     <main className="auth-shell">
       <div className="auth-card">
         <div className="brand auth-brand">
-          <img className="brand-logo" src="/logo.png" alt="Mobi Times logo" />
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="Mobi Times logo" />
           <span>Mobi Times</span>
         </div>
 
@@ -184,7 +184,7 @@ function App() {
     <main className="app-shell">
       <header className="brand-header">
         <div className="brand">
-          <img className="brand-logo" src="/logo.png" alt="Mobi Times logo" />
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="Mobi Times logo" />
           <span>Mobi Times</span>
         </div>
         <div className="header-right">
