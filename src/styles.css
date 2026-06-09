@@ -585,9 +585,10 @@ button svg,
 
 /* ── Responsive ──────────────────────────────────────────────────────────────── */
 
-@media (max-width: 860px) {
+/* Tablet */
+@media (max-width: 900px) {
   .app-shell {
-    padding: 20px;
+    padding: 20px 20px 28px;
   }
 
   .studio-badge {
@@ -597,6 +598,7 @@ button svg,
   .workspace {
     min-height: auto;
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .prompt-panel {
@@ -604,53 +606,151 @@ button svg,
   }
 
   .canvas-panel {
-    min-height: 440px;
+    order: 1;
+    min-height: 420px;
   }
 
   .image-frame.orientation-square {
-    width: min(100%, 580px);
+    width: min(100%, 520px);
   }
 
   .image-frame.orientation-portrait {
-    width: min(60%, 340px);
+    width: min(55%, 320px);
+  }
+
+  .image-frame.orientation-landscape {
+    width: 100%;
   }
 }
 
-@media (max-width: 520px) {
-  .brand-header {
-    margin-bottom: 20px;
+/* Large phone */
+@media (max-width: 600px) {
+  .app-shell {
+    padding: 16px 16px 24px;
   }
 
   .brand {
-    font-size: 21px;
+    font-size: 20px;
+    gap: 10px;
   }
 
   .brand-logo {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .image-counter {
     display: none;
   }
 
-  .workspace {
-    gap: 16px;
+  .brand-header {
+    margin-bottom: 16px;
   }
 
   .canvas-panel {
-    min-height: 360px;
+    min-height: 320px;
   }
 
   .canvas-header {
-    padding: 15px 15px 0;
+    padding: 14px 14px 0;
   }
 
   .canvas-body {
-    padding: 14px;
+    padding: 12px;
+  }
+
+  .canvas-footer {
+    padding: 0 14px 14px;
+  }
+
+  .image-frame.orientation-square {
+    width: 100%;
+  }
+
+  .image-frame.orientation-portrait {
+    width: min(65%, 280px);
+  }
+
+  .prompt-panel {
+    padding: 18px 16px 16px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  .intro {
+    font-size: 13px;
+  }
+
+  .prompt-form {
+    margin-top: 18px;
+    gap: 8px;
+  }
+
+  textarea {
+    min-height: 110px;
+    font-size: 14px;
+  }
+
+  .orientation-btn {
+    min-height: 38px;
+    font-size: 12px;
+  }
+
+  button {
+    min-height: 48px;
+  }
+
+  .reset-btn {
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+
+/* Small phone */
+@media (max-width: 400px) {
+  .app-shell {
+    padding: 12px 12px 20px;
+  }
+
+  .brand {
+    font-size: 18px;
+    gap: 8px;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .logout-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .canvas-panel {
+    min-height: 280px;
+  }
+
+  .image-frame.orientation-portrait {
+    width: 70%;
   }
 
   .placeholder p {
     display: none;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  textarea {
+    min-height: 90px;
+  }
+
+  .orientation-btn {
+    min-height: 34px;
+    font-size: 11px;
   }
 }

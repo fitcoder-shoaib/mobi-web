@@ -1,4 +1,4 @@
-import React, {StrictMode, useState, useRef} from 'react';
+import React, {StrictMode, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
@@ -198,8 +198,6 @@ function App() {
   const [orientation, setOrientation] = useState('square');
   const [imageUrl, setImageUrl] = useState('');
   const [imageMime, setImageMime] = useState('image/png');
-  const [provider, setProvider] = useState('');
-  const [enhancedPrompt, setEnhancedPrompt] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [imageCount, setImageCount] = useState(() => loadImageCount());
@@ -235,8 +233,6 @@ function App() {
 
     setError('');
     setIsLoading(true);
-    setProvider('');
-    setEnhancedPrompt('');
 
     try {
       const response = await fetch(`${WORKER_URL}/generate`, {
@@ -260,8 +256,6 @@ function App() {
       const mime = payload.mimeType || 'image/png';
       setImageUrl(`data:${mime};base64,${payload.imageBase64}`);
       setImageMime(mime);
-      setProvider(payload.provider || '');
-      setEnhancedPrompt(payload.enhancedPrompt || '');
 
       const newCount = imageCount + 1;
       setImageCount(newCount);
@@ -354,13 +348,6 @@ function App() {
             </button>
           </form>
 
-          {enhancedPrompt && !isLoading && (
-            <details className="enhanced-prompt">
-              <summary>Enhanced prompt</summary>
-              <p>{enhancedPrompt}</p>
-            </details>
-          )}
-
           {error && (
             <p className="error-banner" role="alert">
               {error}
@@ -375,9 +362,6 @@ function App() {
               <span>Canvas</span>
             </div>
             <div className="canvas-header-right">
-              {provider && !isLoading && (
-                <span className="provider-badge">{provider}</span>
-              )}
               <span className={isLoading ? 'status active' : 'status'}>
                 {isLoading ? 'Generating' : 'Ready'}
               </span>
