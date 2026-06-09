@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'http://localhost:8787';
-const IMAGE_LIMIT = 6;
+const IMAGE_LIMIT = 5;
 const RESET_CODE = '9539';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
