@@ -1,8 +1,10 @@
-import React, {StrictMode, useState} from 'react';
+import React, {StrictMode, useState, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'http://localhost:8787';
+const IMAGE_LIMIT = 6;
+const RESET_CODE = '9539';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +22,15 @@ function CanvasIcon() {
     <svg aria-hidden="true" viewBox="0 0 24 24">
       <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" />
       <path d="M17 14v6M14 17h6" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M12 3v13M7 11l5 5 5-5" />
+      <path d="M5 21h14" />
     </svg>
   );
 }
@@ -54,6 +65,22 @@ function clearSession() {
   localStorage.removeItem('mobi_token');
   localStorage.removeItem('mobi_token_exp');
 }
+
+// ── Image limit helpers ───────────────────────────────────────────────────────
+
+function loadImageCount() {
+  return Number(localStorage.getItem('mobi_image_count') || 0);
+}
+
+function saveImageCount(n) {
+  localStorage.setItem('mobi_image_count', String(n));
+}
+
+function resetImageCount() {
+  localStorage.setItem('mobi_image_count', '0');
+}
+
+// ── AuthForm ──────────────────────────────────────────────────────────────────
 
 function AuthForm({onSuccess}) {
   const [password, setPassword] = useState('');
@@ -118,14 +145,65 @@ function AuthForm({onSuccess}) {
   );
 }
 
+// ── ResetModal ────────────────────────────────────────────────────────────────
+
+function ResetModal({onClose, onReset}) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (code === RESET_CODE) {
+      onReset();
+      onClose();
+    } else {
+      setError('Incorrect code.');
+      setCode('');
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h2>Reset image limit</h2>
+        <p>Enter the 4-digit reset code to generate more images.</p>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-field">
+            <label htmlFor="reset-code">Reset code</label>
+            <input
+              id="reset-code"
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="••••"
+              autoFocus
+              required
+            />
+          </div>
+          <button type="submit">Confirm</button>
+        </form>
+        {error && <p className="error-banner" role="alert">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
   const [token, setToken] = useState(() => loadSession());
   const [prompt, setPrompt] = useState('');
+  const [orientation, setOrientation] = useState('square');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageMime, setImageMime] = useState('image/png');
+  const [provider, setProvider] = useState('');
+  const [enhancedPrompt, setEnhancedPrompt] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [imageCount, setImageCount] = useState(() => loadImageCount());
+  const [showResetModal, setShowResetModal] = useState(false);
 
   function handleLogin(newToken, exp) {
     saveSession(newToken, exp);
@@ -137,19 +215,27 @@ function App() {
     setToken(null);
   }
 
+  function handleReset() {
+    resetImageCount();
+    setImageCount(0);
+  }
+
   if (!token) {
     return <AuthForm onSuccess={handleLogin} />;
   }
 
-  const canGenerate = prompt.trim().length > 0 && !isLoading;
+  const limitReached = imageCount >= IMAGE_LIMIT;
+  const canGenerate = prompt.trim().length > 0 && !isLoading && !limitReached;
 
   async function generateImage(event) {
     event.preventDefault();
     const cleanPrompt = prompt.trim();
-    if (!cleanPrompt || isLoading) return;
+    if (!cleanPrompt || isLoading || limitReached) return;
 
     setError('');
     setIsLoading(true);
+    setProvider('');
+    setEnhancedPrompt('');
 
     try {
       const response = await fetch(`${WORKER_URL}/generate`, {
@@ -158,7 +244,7 @@ function App() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({prompt: cleanPrompt}),
+        body: JSON.stringify({prompt: cleanPrompt, orientation}),
       });
 
       if (response.status === 401) {
@@ -170,7 +256,15 @@ function App() {
       if (!response.ok) throw new Error(payload?.error || 'Image generation failed.');
       if (!payload?.imageBase64) throw new Error('The server returned no image.');
 
-      setImageUrl(`data:${payload.mimeType || 'image/png'};base64,${payload.imageBase64}`);
+      const mime = payload.mimeType || 'image/png';
+      setImageUrl(`data:${mime};base64,${payload.imageBase64}`);
+      setImageMime(mime);
+      setProvider(payload.provider || '');
+      setEnhancedPrompt(payload.enhancedPrompt || '');
+
+      const newCount = imageCount + 1;
+      setImageCount(newCount);
+      saveImageCount(newCount);
     } catch (requestError) {
       setError(
         requestError instanceof Error ? requestError.message : 'Could not generate the image.',
@@ -180,14 +274,34 @@ function App() {
     }
   }
 
+  function downloadImage() {
+    if (!imageUrl) return;
+    const ext = imageMime === 'image/jpeg' ? 'jpg' : 'png';
+    const a = document.createElement('a');
+    a.href = imageUrl;
+    a.download = `mobi-image-${Date.now()}.${ext}`;
+    a.click();
+  }
+
+  const orientations = [
+    {value: 'square', label: 'Square'},
+    {value: 'landscape', label: 'Landscape'},
+    {value: 'portrait', label: 'Portrait'},
+  ];
+
   return (
     <main className="app-shell">
+      {showResetModal && (
+        <ResetModal onClose={() => setShowResetModal(false)} onReset={handleReset} />
+      )}
+
       <header className="brand-header">
         <div className="brand">
           <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="Mobi Times logo" />
           <span>Mobi Times</span>
         </div>
         <div className="header-right">
+          <span className="image-counter">{imageCount}/{IMAGE_LIMIT} images</span>
           <button type="button" className="logout-btn" onClick={handleLogout}>
             Sign out
           </button>
@@ -215,11 +329,38 @@ function App() {
               placeholder="A neon city skyline at midnight..."
               rows="6"
             />
-            <button type="submit" disabled={!canGenerate}>
-              {isLoading ? <span className="spinner" /> : <SparkleIcon />}
-              <span>{isLoading ? 'Generating...' : 'Generate image'}</span>
-            </button>
+
+            <div className="orientation-row">
+              {orientations.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  className={`orientation-btn${orientation === o.value ? ' active' : ''}`}
+                  onClick={() => setOrientation(o.value)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            {limitReached ? (
+              <button type="button" className="reset-btn" onClick={() => setShowResetModal(true)}>
+                Limit reached — Reset
+              </button>
+            ) : (
+              <button type="submit" disabled={!canGenerate}>
+                {isLoading ? <span className="spinner" /> : <SparkleIcon />}
+                <span>{isLoading ? 'Generating...' : 'Generate image'}</span>
+              </button>
+            )}
           </form>
+
+          {enhancedPrompt && !isLoading && (
+            <details className="enhanced-prompt">
+              <summary>Enhanced prompt</summary>
+              <p>{enhancedPrompt}</p>
+            </details>
+          )}
 
           {error && (
             <p className="error-banner" role="alert">
@@ -234,13 +375,18 @@ function App() {
               <CanvasIcon />
               <span>Canvas</span>
             </div>
-            <span className={isLoading ? 'status active' : 'status'}>
-              {isLoading ? 'Generating' : 'Ready'}
-            </span>
+            <div className="canvas-header-right">
+              {provider && !isLoading && (
+                <span className="provider-badge">{provider}</span>
+              )}
+              <span className={isLoading ? 'status active' : 'status'}>
+                {isLoading ? 'Generating' : 'Ready'}
+              </span>
+            </div>
           </header>
 
           <div className="canvas-body">
-            <div className="image-frame">
+            <div className={`image-frame orientation-${orientation}`}>
               {imageUrl ? (
                 <img src={imageUrl} alt={prompt.trim()} />
               ) : (
@@ -257,6 +403,15 @@ function App() {
               )}
             </div>
           </div>
+
+          {imageUrl && !isLoading && (
+            <div className="canvas-footer">
+              <button type="button" className="download-btn" onClick={downloadImage}>
+                <DownloadIcon />
+                <span>Download</span>
+              </button>
+            </div>
+          )}
         </section>
       </section>
     </main>
