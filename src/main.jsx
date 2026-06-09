@@ -227,6 +227,7 @@ function App() {
   const limitReached = imageCount >= IMAGE_LIMIT;
   const canGenerate = prompt.trim().length > 0 && !isLoading && !limitReached;
 
+
   async function generateImage(event) {
     event.preventDefault();
     const cleanPrompt = prompt.trim();
@@ -343,16 +344,14 @@ function App() {
               ))}
             </div>
 
-            {limitReached ? (
-              <button type="button" className="reset-btn" onClick={() => setShowResetModal(true)}>
-                Limit reached — Reset
-              </button>
-            ) : (
-              <button type="submit" disabled={!canGenerate}>
-                {isLoading ? <span className="spinner" /> : <SparkleIcon />}
-                <span>{isLoading ? 'Generating...' : 'Generate image'}</span>
-              </button>
-            )}
+            <button type="submit" disabled={!canGenerate}>
+              {isLoading ? <span className="spinner" /> : <SparkleIcon />}
+              <span>{isLoading ? 'Generating...' : 'Generate image'}</span>
+            </button>
+
+            <button type="button" className="reset-btn" onClick={() => setShowResetModal(true)}>
+              {limitReached ? `Limit reached (${imageCount}/${IMAGE_LIMIT}) — Reset` : `Reset limit (${imageCount}/${IMAGE_LIMIT})`}
+            </button>
           </form>
 
           {enhancedPrompt && !isLoading && (

@@ -192,16 +192,22 @@ textarea:focus {
 .orientation-row {
   display: flex;
   gap: 6px;
+  margin-top: 4px;
+}
+
+.orientation-row label {
+  width: 100%;
+  margin-bottom: 4px;
 }
 
 .orientation-btn {
   flex: 1;
-  min-height: 36px;
-  font-size: 12px;
+  min-height: 42px;
+  font-size: 13px;
   font-weight: 700;
   border-radius: 7px;
   background: #101313;
-  color: #9ea7a4;
+  color: #eff6f4;
   border: 1px solid #26302e;
   transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
@@ -215,7 +221,8 @@ textarea:focus {
 .orientation-btn.active {
   background: #10231f;
   color: #77e8c9;
-  border-color: #1d4c41;
+  border-color: #23cfa3;
+  box-shadow: 0 0 0 2px rgba(35, 207, 163, 0.15);
 }
 
 button {
