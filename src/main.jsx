@@ -1,4 +1,4 @@
-import React, {StrictMode, useState, useEffect} from 'react';
+import React, {StrictMode, useState, useEffect, useCallback} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
@@ -31,6 +31,32 @@ function DownloadIcon() {
     <svg aria-hidden="true" viewBox="0 0 24 24">
       <path d="M12 3v13M7 11l5 5 5-5" />
       <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M12 8v4l3 3" />
+      <path d="M3.05 11a9 9 0 1 1 .5 4M3 16v-5h5" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M1 4v6h6M23 20v-6h-6" />
+      <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
     </svg>
   );
 }
@@ -77,8 +103,6 @@ function clearSession() {
   localStorage.removeItem('mobi_token_exp');
 }
 
-// ── Image limit helpers ───────────────────────────────────────────────────────
-
 function loadImageCount() {
   return Number(localStorage.getItem('mobi_image_count') || 0);
 }
@@ -91,13 +115,16 @@ function resetImageCount() {
   localStorage.setItem('mobi_image_count', '0');
 }
 
+function formatDate(ts) {
+  return new Date(ts).toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 // ── LoginPage ─────────────────────────────────────────────────────────────────
 
 function LoginPage({error}) {
-  function handleGoogleLogin() {
-    window.location.href = `${WORKER_URL}/auth/login`;
-  }
-
   const errorMessages = {
     not_allowed: 'Your Google account is not authorised to access this app.',
     token_exchange_failed: 'Authentication failed. Please try again.',
@@ -112,19 +139,12 @@ function LoginPage({error}) {
           <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="Mobi Times logo" />
           <span>Mobi Times</span>
         </div>
-
         <p className="auth-desc">Sign in to access the AI image generator.</p>
-
-        <button type="button" className="google-btn" onClick={handleGoogleLogin}>
+        <button type="button" className="google-btn" onClick={() => { window.location.href = `${WORKER_URL}/auth/login`; }}>
           <GoogleIcon />
           <span>Sign in with Google</span>
         </button>
-
-        {error && (
-          <p className="error-banner" role="alert">
-            {errorMessages[error] || 'Something went wrong. Please try again.'}
-          </p>
-        )}
+        {error && <p className="error-banner" role="alert">{errorMessages[error] || 'Something went wrong. Please try again.'}</p>}
       </div>
     </main>
   );
@@ -138,13 +158,8 @@ function ResetModal({onClose, onReset}) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (code === RESET_CODE) {
-      onReset();
-      onClose();
-    } else {
-      setError('Incorrect code.');
-      setCode('');
-    }
+    if (code === RESET_CODE) { onReset(); onClose(); }
+    else { setError('Incorrect code.'); setCode(''); }
   }
 
   return (
@@ -155,17 +170,8 @@ function ResetModal({onClose, onReset}) {
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
             <label htmlFor="reset-code">Reset code</label>
-            <input
-              id="reset-code"
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="••••"
-              autoFocus
-              required
-            />
+            <input id="reset-code" type="password" inputMode="numeric" maxLength={4}
+              value={code} onChange={(e) => setCode(e.target.value)} placeholder="••••" autoFocus required />
           </div>
           <button type="submit">Confirm</button>
         </form>
@@ -175,21 +181,151 @@ function ResetModal({onClose, onReset}) {
   );
 }
 
+// ── HistoryPanel ──────────────────────────────────────────────────────────────
+
+function HistoryPanel({token, onUsePrompt, onLogout}) {
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
+
+  const fetchImages = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${WORKER_URL}/images`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) { onLogout(); return; }
+      if (!res.ok) throw new Error('Failed to load history.');
+      const data = await res.json();
+      setImages(data.images || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, onLogout]);
+
+  useEffect(() => { fetchImages(); }, [fetchImages]);
+
+  async function handleDelete(id) {
+    setDeleting(id);
+    try {
+      const res = await fetch(`${WORKER_URL}/images/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) { onLogout(); return; }
+      if (res.ok) setImages((prev) => prev.filter((img) => img.id !== id));
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="history-loading">
+        <span className="spinner large" />
+        <span>Loading history...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="history-empty">
+        <p className="error-banner">{error}</p>
+        <button type="button" onClick={fetchImages}>Retry</button>
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="history-empty">
+        <ImagePlaceholder />
+        <p>No images yet. Generate your first image!</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {lightbox && (
+        <div className="modal-backdrop" onClick={() => setLightbox(null)}>
+          <div className="lightbox-card" onClick={(e) => e.stopPropagation()}>
+            <img src={`${WORKER_URL}/images/${lightbox.id}`}
+              alt={lightbox.prompt}
+              style={{ width: '100%', borderRadius: 10 }}
+            />
+            <div className="lightbox-meta">
+              <p className="lightbox-prompt">{lightbox.prompt}</p>
+              <p className="lightbox-date">{formatDate(lightbox.created_at)}</p>
+            </div>
+            <div className="lightbox-actions">
+              <button type="button" onClick={() => { onUsePrompt(lightbox.prompt); setLightbox(null); }}>
+                <RefreshIcon />
+                <span>Use this prompt</span>
+              </button>
+              <button type="button" className="reset-btn" onClick={() => { handleDelete(lightbox.id); setLightbox(null); }}>
+                <TrashIcon />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="history-grid">
+        {images.map((img) => (
+          <div key={img.id} className="history-item" onClick={() => setLightbox(img)}>
+            <img
+              src={`${WORKER_URL}/images/${img.id}`}
+              alt={img.prompt}
+              loading="lazy"
+            />
+            <div className="history-item-overlay">
+              <p className="history-item-prompt">{img.prompt}</p>
+              <p className="history-item-date">{formatDate(img.created_at)}</p>
+              <div className="history-item-actions">
+                <button type="button" className="history-action-btn"
+                  onClick={(e) => { e.stopPropagation(); onUsePrompt(img.prompt); }}
+                  title="Re-use prompt">
+                  <RefreshIcon />
+                </button>
+                <button type="button" className="history-action-btn danger"
+                  onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
+                  disabled={deleting === img.id}
+                  title="Delete">
+                  {deleting === img.id ? <span className="spinner" /> : <TrashIcon />}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
   const [token, setToken] = useState(() => loadSession());
   const [authError, setAuthError] = useState('');
+  const [activeTab, setActiveTab] = useState('generate');
   const [prompt, setPrompt] = useState('');
   const [orientation, setOrientation] = useState('square');
   const [imageUrl, setImageUrl] = useState('');
-  const [imageMime, setImageMime] = useState('image/png');
+  const [currentImageId, setCurrentImageId] = useState('');
+  const [imageMime, setImageMime] = useState('image/jpeg');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [imageCount, setImageCount] = useState(() => loadImageCount());
   const [showResetModal, setShowResetModal] = useState(false);
 
-  // Handle OAuth callback — token comes back as URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const callbackToken = params.get('token');
@@ -218,16 +354,17 @@ function App() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-    } catch {
-      // ignore — local reset still happens
-    }
+    } catch { /* local reset still happens */ }
     resetImageCount();
     setImageCount(0);
   }
 
-  if (!token) {
-    return <LoginPage error={authError} />;
+  function handleUsePrompt(p) {
+    setPrompt(p);
+    setActiveTab('generate');
   }
+
+  if (!token) return <LoginPage error={authError} />;
 
   const limitReached = imageCount >= IMAGE_LIMIT;
   const canGenerate = prompt.trim().length > 0 && !isLoading && !limitReached;
@@ -239,37 +376,32 @@ function App() {
 
     setError('');
     setIsLoading(true);
+    setImageUrl('');
 
     try {
       const response = await fetch(`${WORKER_URL}/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({prompt: cleanPrompt, orientation}),
       });
 
-      if (response.status === 401) {
-        handleLogout();
-        return;
-      }
+      if (response.status === 401) { handleLogout(); return; }
 
       const payload = await response.json().catch(() => null);
 
       if (response.status === 429 && payload?.limitReached) {
-        const newCount = IMAGE_LIMIT;
-        setImageCount(newCount);
-        saveImageCount(newCount);
+        setImageCount(IMAGE_LIMIT);
+        saveImageCount(IMAGE_LIMIT);
         throw new Error('Image limit reached. Use the reset button to continue.');
       }
 
       if (!response.ok) throw new Error(payload?.error || 'Image generation failed.');
       if (!payload?.imageBase64) throw new Error('The server returned no image.');
 
-      const mime = payload.mimeType || 'image/png';
+      const mime = payload.mimeType || 'image/jpeg';
       setImageUrl(`data:${mime};base64,${payload.imageBase64}`);
       setImageMime(mime);
+      setCurrentImageId(payload.id || '');
 
       const newCount = imageCount + 1;
       setImageCount(newCount);
@@ -309,108 +441,111 @@ function App() {
         </div>
         <div className="header-right">
           <span className="image-counter">{imageCount}/{IMAGE_LIMIT} images</span>
-          <button type="button" className="logout-btn" onClick={handleLogout}>
-            Sign out
-          </button>
+          <button type="button" className="logout-btn" onClick={handleLogout}>Sign out</button>
           <span className="studio-badge">Web Studio</span>
         </div>
       </header>
 
-      <section className="workspace">
-        <aside className="prompt-panel">
-          <div>
-            <p className="eyebrow">AI image generator</p>
-            <h1>Create an image</h1>
-            <p className="intro">
-              Describe your idea and generate a fresh visual with AI.
-            </p>
-          </div>
+      <div className="tab-bar">
+        <button type="button" className={`tab-btn${activeTab === 'generate' ? ' active' : ''}`}
+          onClick={() => setActiveTab('generate')}>
+          <SparkleIcon />
+          <span>Generate</span>
+        </button>
+        <button type="button" className={`tab-btn${activeTab === 'history' ? ' active' : ''}`}
+          onClick={() => setActiveTab('history')}>
+          <HistoryIcon />
+          <span>History</span>
+        </button>
+      </div>
 
-          <form className="prompt-form" onSubmit={generateImage}>
-            <label htmlFor="prompt">Prompt</label>
-            <textarea
-              id="prompt"
-              name="prompt"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="A neon city skyline at midnight..."
-              rows="6"
-            />
-
-            <div className="orientation-row">
-              {orientations.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  className={`orientation-btn${orientation === o.value ? ' active' : ''}`}
-                  onClick={() => setOrientation(o.value)}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-
-            <button type="submit" disabled={!canGenerate}>
-              {isLoading ? <span className="spinner" /> : <SparkleIcon />}
-              <span>{isLoading ? 'Generating...' : 'Generate image'}</span>
-            </button>
-
-            <button type="button" className="reset-btn" onClick={() => setShowResetModal(true)}>
-              {limitReached
-                ? `Limit reached (${imageCount}/${IMAGE_LIMIT}) — Reset`
-                : `Reset limit (${imageCount}/${IMAGE_LIMIT})`}
-            </button>
-          </form>
-
-          {error && (
-            <p className="error-banner" role="alert">
-              {error}
-            </p>
-          )}
-        </aside>
-
-        <section className="canvas-panel" aria-label="Generated image canvas">
-          <header className="canvas-header">
-            <div className="canvas-title">
-              <CanvasIcon />
-              <span>Canvas</span>
-            </div>
-            <div className="canvas-header-right">
-              <span className={isLoading ? 'status active' : 'status'}>
-                {isLoading ? 'Generating' : 'Ready'}
-              </span>
-            </div>
-          </header>
-
-          <div className="canvas-body">
-            <div className={`image-frame orientation-${orientation}`}>
-              {imageUrl ? (
-                <img src={imageUrl} alt={prompt.trim()} />
-              ) : (
-                <div className="placeholder">
-                  <ImagePlaceholder />
-                  <p>Your generated image will appear here</p>
-                </div>
-              )}
-              {isLoading && (
-                <div className="loading-overlay">
-                  <span className="spinner large" />
-                  <span>Creating your image</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {imageUrl && !isLoading && (
-            <div className="canvas-footer">
-              <button type="button" className="download-btn" onClick={downloadImage}>
-                <DownloadIcon />
-                <span>Download</span>
-              </button>
-            </div>
-          )}
+      {activeTab === 'history' ? (
+        <section className="history-panel">
+          <HistoryPanel token={token} onUsePrompt={handleUsePrompt} onLogout={handleLogout} />
         </section>
-      </section>
+      ) : (
+        <section className="workspace">
+          <aside className="prompt-panel">
+            <div>
+              <p className="eyebrow">AI image generator</p>
+              <h1>Create an image</h1>
+              <p className="intro">Describe your idea and generate a fresh visual with AI.</p>
+            </div>
+
+            <form className="prompt-form" onSubmit={generateImage}>
+              <label htmlFor="prompt">Prompt</label>
+              <textarea id="prompt" name="prompt" value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="A neon city skyline at midnight..." rows="6" />
+
+              <div className="orientation-row">
+                {orientations.map((o) => (
+                  <button key={o.value} type="button"
+                    className={`orientation-btn${orientation === o.value ? ' active' : ''}`}
+                    onClick={() => setOrientation(o.value)}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              <button type="submit" disabled={!canGenerate}>
+                {isLoading ? <span className="spinner" /> : <SparkleIcon />}
+                <span>{isLoading ? 'Generating...' : 'Generate image'}</span>
+              </button>
+
+              <button type="button" className="reset-btn" onClick={() => setShowResetModal(true)}>
+                {limitReached
+                  ? `Limit reached (${imageCount}/${IMAGE_LIMIT}) — Reset`
+                  : `Reset limit (${imageCount}/${IMAGE_LIMIT})`}
+              </button>
+            </form>
+
+            {error && <p className="error-banner" role="alert">{error}</p>}
+          </aside>
+
+          <section className="canvas-panel" aria-label="Generated image canvas">
+            <header className="canvas-header">
+              <div className="canvas-title">
+                <CanvasIcon />
+                <span>Canvas</span>
+              </div>
+              <div className="canvas-header-right">
+                <span className={isLoading ? 'status active' : 'status'}>
+                  {isLoading ? 'Generating' : 'Ready'}
+                </span>
+              </div>
+            </header>
+
+            <div className="canvas-body">
+              <div className={`image-frame orientation-${orientation}`}>
+                {imageUrl ? (
+                  <img src={imageUrl} alt={prompt.trim()} />
+                ) : (
+                  <div className="placeholder">
+                    <ImagePlaceholder />
+                    <p>Your generated image will appear here</p>
+                  </div>
+                )}
+                {isLoading && (
+                  <div className="loading-overlay">
+                    <span className="spinner large" />
+                    <span>Creating your image</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {imageUrl && !isLoading && (
+              <div className="canvas-footer">
+                <button type="button" className="download-btn" onClick={downloadImage}>
+                  <DownloadIcon />
+                  <span>Download</span>
+                </button>
+              </div>
+            )}
+          </section>
+        </section>
+      )}
     </main>
   );
 }
