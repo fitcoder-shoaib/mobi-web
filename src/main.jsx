@@ -256,9 +256,9 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
       {lightbox && (
         <div className="modal-backdrop" onClick={() => setLightbox(null)}>
           <div className="lightbox-card" onClick={(e) => e.stopPropagation()}>
-            <img src={`${WORKER_URL}/images/${lightbox.id}`}
+            <img src={`${WORKER_URL}/images/${lightbox.id}?token=${token}`}
               alt={lightbox.prompt}
-              style={{ width: '100%', borderRadius: 10 }}
+              style={{ width: '100%', borderRadius: 10, objectFit: 'contain', background: '#0d0f0f' }}
             />
             <div className="lightbox-meta">
               <p className="lightbox-prompt">{lightbox.prompt}</p>
@@ -280,9 +280,9 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
 
       <div className="history-grid">
         {images.map((img) => (
-          <div key={img.id} className="history-item" onClick={() => setLightbox(img)}>
+          <div key={img.id} className={`history-item orientation-${img.orientation || 'square'}`} onClick={() => setLightbox(img)}>
             <img
-              src={`${WORKER_URL}/images/${img.id}`}
+              src={`${WORKER_URL}/images/${img.id}?token=${token}`}
               alt={img.prompt}
               loading="lazy"
             />

@@ -691,6 +691,15 @@ button svg,
   transition: border-color 160ms ease, transform 160ms ease;
 }
 
+.history-item.orientation-landscape {
+  aspect-ratio: 16 / 9;
+  grid-column: span 2;
+}
+
+.history-item.orientation-portrait {
+  aspect-ratio: 9 / 16;
+}
+
 .history-item:hover {
   border-color: #23cfa3;
   transform: translateY(-2px);
