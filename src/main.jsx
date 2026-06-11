@@ -190,6 +190,19 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
   const [deleting, setDeleting] = useState(null);
   const [lightbox, setLightbox] = useState(null);
 
+  async function downloadHistoryImage(id, createdAt) {
+    try {
+      const res = await fetch(`${WORKER_URL}/images/${id}?token=${token}`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `mobi-image-${createdAt}.jpg`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch { /* ignore */ }
+  }
+
   const fetchImages = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -269,6 +282,10 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
                 <RefreshIcon />
                 <span>Use this prompt</span>
               </button>
+              <button type="button" onClick={() => downloadHistoryImage(lightbox.id, lightbox.created_at)}>
+                <DownloadIcon />
+                <span>Download</span>
+              </button>
               <button type="button" className="reset-btn" onClick={() => { handleDelete(lightbox.id); setLightbox(null); }}>
                 <TrashIcon />
                 <span>Delete</span>
@@ -294,6 +311,11 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
                   onClick={(e) => { e.stopPropagation(); onUsePrompt(img.prompt); }}
                   title="Re-use prompt">
                   <RefreshIcon />
+                </button>
+                <button type="button" className="history-action-btn"
+                  onClick={(e) => { e.stopPropagation(); downloadHistoryImage(img.id, img.created_at); }}
+                  title="Download">
+                  <DownloadIcon />
                 </button>
                 <button type="button" className="history-action-btn danger"
                   onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
