@@ -317,7 +317,7 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState('generate');
   const [prompt, setPrompt] = useState('');
-  const [orientation, setOrientation] = useState('square');
+  const [orientation, setOrientation] = useState('landscape');
   const [imageUrl, setImageUrl] = useState('');
   const [currentImageId, setCurrentImageId] = useState('');
   const [imageMime, setImageMime] = useState('image/jpeg');
@@ -423,7 +423,6 @@ function App() {
   }
 
   const orientations = [
-    {value: 'square', label: 'Square'},
     {value: 'landscape', label: 'Landscape'},
     {value: 'portrait', label: 'Portrait'},
   ];
