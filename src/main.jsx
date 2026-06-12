@@ -191,20 +191,8 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [lightbox, setLightbox] = useState(null);
 
-  async function downloadHistoryImage(id, createdAt) {
-    try {
-      const res = await fetch(`${WORKER_URL}/images/${id}?token=${token}`);
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = `mobi-image-${createdAt}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-    } catch { /* ignore */ }
+  function downloadHistoryImage(id) {
+    window.open(`${WORKER_URL}/images/${id}?token=${token}&download=1`, '_blank');
   }
 
   const fetchImages = useCallback(async () => {
@@ -310,7 +298,7 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
                 <RefreshIcon />
                 <span>Re-use prompt</span>
               </button>
-              <button type="button" onClick={() => downloadHistoryImage(lightbox.id, lightbox.created_at)}>
+              <button type="button" onClick={() => downloadHistoryImage(lightbox.id)}>
                 <DownloadIcon />
                 <span>Download</span>
               </button>
@@ -342,7 +330,7 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
                   <RefreshIcon />
                 </button>
                 <button type="button" className="history-action-btn"
-                  onClick={() => downloadHistoryImage(img.id, img.created_at)}
+                  onClick={() => downloadHistoryImage(img.id)}
                   title="Download">
                   <DownloadIcon />
                 </button>
