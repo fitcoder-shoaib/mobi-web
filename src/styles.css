@@ -681,23 +681,13 @@ button svg,
 }
 
 .history-item {
-  position: relative;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid #252b2a;
   background: #0d0f0f;
-  cursor: pointer;
-  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
   transition: border-color 160ms ease, transform 160ms ease;
-}
-
-.history-item.orientation-landscape {
-  aspect-ratio: 16 / 9;
-  grid-column: span 2;
-}
-
-.history-item.orientation-portrait {
-  aspect-ratio: 9 / 16;
 }
 
 .history-item:hover {
@@ -705,42 +695,39 @@ button svg,
   transform: translateY(-2px);
 }
 
-.history-item > img {
+.history-item.orientation-landscape {
+  grid-column: span 2;
+}
+
+.history-img-wrap {
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.history-item.orientation-square .history-img-wrap { aspect-ratio: 1; }
+.history-item.orientation-landscape .history-img-wrap { aspect-ratio: 16 / 9; }
+.history-item.orientation-portrait .history-img-wrap { aspect-ratio: 9 / 16; }
+
+.history-img-wrap img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 200ms ease;
 }
 
-.history-item-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(7,8,8,0.92) 0%, transparent 50%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 160ms ease;
+.history-img-wrap:hover img {
+  transform: scale(1.03);
+}
+
+.history-item-footer {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 10px;
-  gap: 4px;
-}
-
-.history-item:hover .history-item-overlay {
-  opacity: 1;
-  pointer-events: all;
-}
-
-.history-item-prompt {
-  margin: 0;
-  color: #eff6f4;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  gap: 8px;
+  border-top: 1px solid #1a1f1e;
 }
 
 .history-item-date {
@@ -748,20 +735,24 @@ button svg,
   color: #77e8c9;
   font-size: 10px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .history-item-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .history-action-btn {
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 28px;
+  width: 28px;
+  padding: 0;
   font-size: 11px;
   border-radius: 6px;
-  background: rgba(15, 35, 31, 0.9);
+  background: #101313;
   color: #77e8c9;
   border: 1px solid #1d4c41;
 }

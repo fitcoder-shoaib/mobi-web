@@ -325,28 +325,29 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
 
       <div className="history-grid">
         {images.map((img) => (
-          <div key={img.id} className={`history-item orientation-${img.orientation || 'square'}`} onClick={() => setLightbox(img)}>
-            <img
-              src={`${WORKER_URL}/images/${img.id}?token=${token}`}
-              alt={img.prompt}
-              loading="lazy"
-            />
-            <div className="history-item-overlay">
-              <p className="history-item-prompt">{img.prompt}</p>
+          <div key={img.id} className={`history-item orientation-${img.orientation || 'square'}`}>
+            <div className="history-img-wrap" onClick={() => setLightbox(img)}>
+              <img
+                src={`${WORKER_URL}/images/${img.id}?token=${token}`}
+                alt={img.prompt}
+                loading="lazy"
+              />
+            </div>
+            <div className="history-item-footer">
               <p className="history-item-date">{formatDate(img.created_at)}</p>
               <div className="history-item-actions">
                 <button type="button" className="history-action-btn"
-                  onClick={(e) => { e.stopPropagation(); onUsePrompt(img.prompt); }}
+                  onClick={() => onUsePrompt(img.prompt)}
                   title="Re-use prompt">
                   <RefreshIcon />
                 </button>
                 <button type="button" className="history-action-btn"
-                  onClick={(e) => { e.stopPropagation(); downloadHistoryImage(img.id, img.created_at); }}
+                  onClick={() => downloadHistoryImage(img.id, img.created_at)}
                   title="Download">
                   <DownloadIcon />
                 </button>
                 <button type="button" className="history-action-btn danger"
-                  onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(img.id); }}
+                  onClick={() => setConfirmDeleteId(img.id)}
                   disabled={deleting === img.id}
                   title="Delete">
                   {deleting === img.id ? <span className="spinner" /> : <TrashIcon />}
