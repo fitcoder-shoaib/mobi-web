@@ -788,14 +788,42 @@ button svg,
 /* ── Lightbox ────────────────────────────────────────────────────────────────── */
 
 .lightbox-card {
-  width: min(90vw, 600px);
+  width: min(92vw, 560px);
+  max-height: 92vh;
+  overflow-y: auto;
   border: 1px solid #252b2a;
   border-radius: 14px;
   background: #0f1212;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.lightbox-card.lightbox-landscape {
+  width: min(92vw, 860px);
+}
+
+.lightbox-card.lightbox-portrait {
+  width: min(60vw, 420px);
+}
+
+.lightbox-img-wrap {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0d0f0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-img-wrap img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 70vh;
+  object-fit: contain;
 }
 
 .lightbox-meta {
@@ -816,16 +844,19 @@ button svg,
   color: #77e8c9;
   font-size: 12px;
   font-weight: 700;
+  text-transform: capitalize;
 }
 
 .lightbox-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .lightbox-actions button {
   flex: 1;
-  min-height: 44px;
+  min-width: 100px;
+  min-height: 42px;
   font-size: 13px;
 }
 

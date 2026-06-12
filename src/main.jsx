@@ -195,11 +195,14 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
       const res = await fetch(`${WORKER_URL}/images/${id}?token=${token}`);
       if (!res.ok) return;
       const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = objectUrl;
       a.download = `mobi-image-${createdAt}.jpg`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
     } catch { /* ignore */ }
   }
 
@@ -268,19 +271,21 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
     <>
       {lightbox && (
         <div className="modal-backdrop" onClick={() => setLightbox(null)}>
-          <div className="lightbox-card" onClick={(e) => e.stopPropagation()}>
-            <img src={`${WORKER_URL}/images/${lightbox.id}?token=${token}`}
-              alt={lightbox.prompt}
-              style={{ width: '100%', borderRadius: 10, objectFit: 'contain', background: '#0d0f0f' }}
-            />
+          <div className={`lightbox-card lightbox-${lightbox.orientation || 'square'}`} onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-img-wrap">
+              <img
+                src={`${WORKER_URL}/images/${lightbox.id}?token=${token}`}
+                alt={lightbox.prompt}
+              />
+            </div>
             <div className="lightbox-meta">
               <p className="lightbox-prompt">{lightbox.prompt}</p>
-              <p className="lightbox-date">{formatDate(lightbox.created_at)}</p>
+              <p className="lightbox-date">{formatDate(lightbox.created_at)} · {lightbox.orientation}</p>
             </div>
             <div className="lightbox-actions">
               <button type="button" onClick={() => { onUsePrompt(lightbox.prompt); setLightbox(null); }}>
                 <RefreshIcon />
-                <span>Use this prompt</span>
+                <span>Re-use prompt</span>
               </button>
               <button type="button" onClick={() => downloadHistoryImage(lightbox.id, lightbox.created_at)}>
                 <DownloadIcon />
