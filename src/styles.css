@@ -717,6 +717,7 @@ button svg,
   inset: 0;
   background: linear-gradient(to top, rgba(7,8,8,0.92) 0%, transparent 50%);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 160ms ease;
   display: flex;
   flex-direction: column;
@@ -727,6 +728,7 @@ button svg,
 
 .history-item:hover .history-item-overlay {
   opacity: 1;
+  pointer-events: all;
 }
 
 .history-item-prompt {

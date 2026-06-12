@@ -188,6 +188,7 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [lightbox, setLightbox] = useState(null);
 
   async function downloadHistoryImage(id, createdAt) {
@@ -269,6 +270,28 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
 
   return (
     <>
+      {confirmDeleteId && (
+        <div className="modal-backdrop" onClick={() => setConfirmDeleteId(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete image?</h2>
+            <p>This will remove the image from your history. You can always recover it manually if needed.</p>
+            <div style={{display:'flex', gap:10}}>
+              <button type="button" className="reset-btn" onClick={() => {
+                handleDelete(confirmDeleteId);
+                if (lightbox?.id === confirmDeleteId) setLightbox(null);
+                setConfirmDeleteId(null);
+              }}>
+                <TrashIcon />
+                <span>Yes, delete</span>
+              </button>
+              <button type="button" onClick={() => setConfirmDeleteId(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {lightbox && (
         <div className="modal-backdrop" onClick={() => setLightbox(null)}>
           <div className={`lightbox-card lightbox-${lightbox.orientation || 'square'}`} onClick={(e) => e.stopPropagation()}>
@@ -291,7 +314,7 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
                 <DownloadIcon />
                 <span>Download</span>
               </button>
-              <button type="button" className="reset-btn" onClick={() => { handleDelete(lightbox.id); setLightbox(null); }}>
+              <button type="button" className="reset-btn" onClick={() => setConfirmDeleteId(lightbox.id)}>
                 <TrashIcon />
                 <span>Delete</span>
               </button>
@@ -323,7 +346,7 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
                   <DownloadIcon />
                 </button>
                 <button type="button" className="history-action-btn danger"
-                  onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
+                  onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(img.id); }}
                   disabled={deleting === img.id}
                   title="Delete">
                   {deleting === img.id ? <span className="spinner" /> : <TrashIcon />}
