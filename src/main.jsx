@@ -1,4 +1,4 @@
-import React, {StrictMode, useState, useEffect, useCallback} from 'react';
+import React, {StrictMode, useState, useEffect, useCallback, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
@@ -68,6 +68,25 @@ function GoogleIcon() {
       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m17 8-5-5-5 5M12 3v12" />
+    </svg>
+  );
+}
+
+function WandIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="m15 4-1 1M9 4l1 1M4 9l1 1M4 15l1-1M9 20l1-1M15 20l-1-1M20 15l-1-1M20 9l-1 1" />
+      <path d="m3 3 18 18" />
+      <path d="m10.5 10.5 5 5" />
     </svg>
   );
 }
@@ -349,6 +368,206 @@ function HistoryPanel({token, onUsePrompt, onLogout}) {
   );
 }
 
+// ── UploadZone ────────────────────────────────────────────────────────────────
+
+function UploadZone({label, hint, preview, onFile}) {
+  const inputRef = useRef(null);
+
+  function handleChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Image must be under 4MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target.result.split(',')[1];
+      onFile(base64, ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className={`upload-zone${preview ? ' has-image' : ''}`} onClick={() => inputRef.current?.click()}>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} style={{display:'none'}} />
+      {preview ? (
+        <img src={preview} alt={label} />
+      ) : (
+        <div className="upload-placeholder">
+          <UploadIcon />
+          <span className="upload-label">{label}</span>
+          <span className="upload-hint">{hint || 'Click to upload · max 4MB'}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── CustomCreator ─────────────────────────────────────────────────────────────
+
+function CustomCreator({token, onLogout, imageCount, setImageCount}) {
+  const [imageA, setImageA] = useState(null);
+  const [imageAPreview, setImageAPreview] = useState('');
+  const [imageB, setImageB] = useState(null);
+  const [imageBPreview, setImageBPreview] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [orientation, setOrientation] = useState('landscape');
+  const [result, setResult] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const limitReached = imageCount >= IMAGE_LIMIT;
+  const canGenerate = imageA && imageB && prompt.trim() && !isLoading && !limitReached;
+
+  async function handleGenerate(e) {
+    e.preventDefault();
+    if (!canGenerate) return;
+    setError('');
+    setIsLoading(true);
+    setResult('');
+
+    try {
+      const res = await fetch(`${WORKER_URL}/custom`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+        body: JSON.stringify({prompt: prompt.trim(), orientation, imageA, imageB}),
+      });
+
+      if (res.status === 401) { onLogout(); return; }
+
+      const payload = await res.json().catch(() => null);
+
+      if (res.status === 429 && payload?.limitReached) {
+        setImageCount(IMAGE_LIMIT);
+        saveImageCount(IMAGE_LIMIT);
+        throw new Error('Image limit reached. Use the reset button to continue.');
+      }
+
+      if (!res.ok) throw new Error(payload?.error || 'Generation failed.');
+      if (!payload?.imageBase64) throw new Error('No image returned from server.');
+
+      setResult(`data:${payload.mimeType || 'image/png'};base64,${payload.imageBase64}`);
+      const newCount = imageCount + 1;
+      setImageCount(newCount);
+      saveImageCount(newCount);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function downloadResult() {
+    if (!result) return;
+    const a = document.createElement('a');
+    a.href = result;
+    a.download = `mobi-custom-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  const orientations = [
+    {value: 'landscape', label: 'Landscape'},
+    {value: 'portrait', label: 'Portrait'},
+  ];
+
+  return (
+    <section className="workspace">
+      <aside className="prompt-panel">
+        <div>
+          <p className="eyebrow">Custom Creator</p>
+          <h1>Merge images</h1>
+          <p className="intro">Upload a scene and your photo — AI blends them together.</p>
+        </div>
+
+        <form className="prompt-form" onSubmit={handleGenerate}>
+          <div className="upload-row">
+            <div className="upload-col">
+              <label>Scene image</label>
+              <UploadZone label="Car / anime / scene" hint="Click to upload · max 4MB"
+                preview={imageAPreview}
+                onFile={(b64, prev) => { setImageA(b64); setImageAPreview(prev); }} />
+            </div>
+            <div className="upload-col">
+              <label>Your photo</label>
+              <UploadZone label="Your photo" hint="Click to upload · max 4MB"
+                preview={imageBPreview}
+                onFile={(b64, prev) => { setImageB(b64); setImageBPreview(prev); }} />
+            </div>
+          </div>
+
+          <label htmlFor="custom-prompt">Describe the scene</label>
+          <textarea id="custom-prompt" value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Me sitting next to Naruto drinking coffee at a ramen shop..."
+            rows={5} />
+
+          <div className="orientation-row">
+            {orientations.map((o) => (
+              <button key={o.value} type="button"
+                className={`orientation-btn${orientation === o.value ? ' active' : ''}`}
+                onClick={() => setOrientation(o.value)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          <button type="submit" disabled={!canGenerate}>
+            {isLoading ? <span className="spinner" /> : <WandIcon />}
+            <span>{isLoading ? 'Creating...' : 'Create image'}</span>
+          </button>
+        </form>
+
+        {error && <p className="error-banner" role="alert">{error}</p>}
+      </aside>
+
+      <section className="canvas-panel" aria-label="Custom creator canvas">
+        <header className="canvas-header">
+          <div className="canvas-title">
+            <CanvasIcon />
+            <span>Result</span>
+          </div>
+          <div className="canvas-header-right">
+            <span className={isLoading ? 'status active' : 'status'}>
+              {isLoading ? 'Creating' : 'Ready'}
+            </span>
+          </div>
+        </header>
+
+        <div className="canvas-body">
+          <div className={`image-frame orientation-${orientation}`}>
+            {result ? (
+              <img src={result} alt="Custom generated image" />
+            ) : (
+              <div className="placeholder">
+                <ImagePlaceholder />
+                <p>Your merged image will appear here</p>
+              </div>
+            )}
+            {isLoading && (
+              <div className="loading-overlay">
+                <span className="spinner large" />
+                <span>Blending your images</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {result && !isLoading && (
+          <div className="canvas-footer">
+            <button type="button" className="download-btn" onClick={downloadResult}>
+              <DownloadIcon />
+              <span>Download</span>
+            </button>
+          </div>
+        )}
+      </section>
+    </section>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -490,6 +709,11 @@ function App() {
           <SparkleIcon />
           <span>Generate</span>
         </button>
+        <button type="button" className={`tab-btn${activeTab === 'custom' ? ' active' : ''}`}
+          onClick={() => setActiveTab('custom')}>
+          <WandIcon />
+          <span>Custom Creator</span>
+        </button>
         <button type="button" className={`tab-btn${activeTab === 'history' ? ' active' : ''}`}
           onClick={() => setActiveTab('history')}>
           <HistoryIcon />
@@ -497,7 +721,9 @@ function App() {
         </button>
       </div>
 
-      {activeTab === 'history' ? (
+      {activeTab === 'custom' ? (
+        <CustomCreator token={token} onLogout={handleLogout} imageCount={imageCount} setImageCount={setImageCount} />
+      ) : activeTab === 'history' ? (
         <section className="history-panel">
           <HistoryPanel token={token} onUsePrompt={handleUsePrompt} onLogout={handleLogout} />
         </section>
